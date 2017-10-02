@@ -172,6 +172,48 @@ def RSI_strategy(df, start=1, commision=0.0025, timeperiod=14, low_TH=30, high_T
     print('Current holdings: ',account_value[-1],'USDs')
     return df
 #%%
+def EMA_crossover_strategy(df, start=1, commision=0.0025, short_timeperiod=5, long_timeperiod=21):
+    '''
+    decide on buying/selling according to EMA crossovers 
+    '''
+    buys_sells = [0]*df.shape[0]
+    account_value = [0]*df.shape[0]
+    currency = 'BTC'
+    prices = df['Close'].values
+    current_BTC = start
+    current_USD = 0
+    df['EMA_short'] = ta.EMA(np.asarray(df['Close']), timeperiod=short_timeperiod)
+    df['EMA_long'] = ta.EMA(np.asarray(df['Close']), timeperiod=long_timeperiod)
     
+    for idx,row in df.iterrows():
+        if row['EMA_long'] > 0:
+            previous = df.iloc[idx-1]
+            if currency == 'BTC':
+                # we want to sell if short term trend is is crossing the long term trend from below
+                if previous['EMA_short'] < previous['EMA_long'] and row['EMA_short'] > row['EMA_long']:
+                    buys_sells[idx] = -1
+                    currency = 'USD'
+                    current_USD = current_BTC * (1 - commision) * row['Close']
+                    current_BTC = 0
+            
+            elif currency == 'USD':
+
+            # we want to buy if short term trend is is crossing the long term trend from above
+                if previous['EMA_short'] > previous['EMA_long'] and row['EMA_short'] < row['EMA_long']:
+                    buys_sells[idx] = 1
+                    currency = 'BTC'
+                    current_BTC = current_USD * (1 - commision) / row['Close']
+                    current_USD = 0
+        
+        account_value[idx] = current_BTC * row['Close'] + current_USD           
+    # Update last value of the list
+    account_value[-1] = current_BTC * prices[-1] + current_USD
+            
+    df['Buy_Sell'] = buys_sells
+    df['Account_Value'] = account_value
+    print('Current holdings: ',account_value[-1],'USDs')
+    return df
+
+
     
     
