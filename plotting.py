@@ -5,7 +5,6 @@ from matplotlib import pyplot as plt
 import matplotlib.dates as mdates
 import matplotlib.ticker as mticker
 from matplotlib.finance import candlestick_ohlc
-
 import talib as ta
 
 LIGHT_COLOR = '#00A3E0'
@@ -91,22 +90,19 @@ def BBands_overlay(a, df, resample_size='1Min', timeperiod=20, nbdev=2):
     label = 'Bollinger Bands ('+str(timeperiod)+','+str(nbdev) +') High'
     a.plot_date(BBands.index, BBands['Upper'],fmt='--', label=label, linewidth=0.7)
     label = 'Bollinger Bands ('+str(timeperiod)+','+str(nbdev) +') Low'
-    a.plot_date(BBands.index, BBands['Lower'],fmt='--', label=label, linewidth=0.7)    
+    a.plot_date(BBands.index, BBands['Lower'],fmt='--', label=label, linewidth=0.7)
 
-def plot_OHLC(df, resample_size='10Min', overlays=[buy_sell_overlay,(SMA_overlay,14)]):
-    '''
-    Inputs:
-        df - Pandas Dataframe that contains OHLC data with the following columns:
-            'Open', 'High', 'Low', 'Close' and 'Volume_(BTC)'. 
-            additional 'DateStamp' column in datetime64[s] is needed as well.
-        resample_size - the OHLC can be resampled to different candle bar resolution.
-                        minimum is '1Min'.
-        Overlays - a list that contains either single item tupple with a supported overlay function
-                    or a tupple with 2 items: function name and needed params.
+def parabolic_SAR_overlay(a, df, resample_size='1Min', acc=0.02, maximum=0.2):
     
-    Output:
-        plots a figure that contains
-    '''
+    ohlc_dict = {'Open':'first', 'High':'max', 'Low':'min', 'Close': 'last'}
+    OHLC = df.resample(resample_size).apply(ohlc_dict).dropna()
+    SAR = pd.DataFrame()
+    SAR['SAR'] = ta.SAR(np.asarray(OHLC['High']), np.asarray(OHLC['Low']), acceleration=acc, maximum=maximum)
+    SAR.index = OHLC.index
+    label = 'Parabolic SAR ('+str(acc)+','+str(maximum) +') High'
+    a.plot_date(SAR.index, SAR['SAR'],fmt='o', label=label, markersize=4)
+
+def plot_OHLC(df, resample_size='10Min', overlays=[[buy_sell_overlay],[SMA_overlay,14]]):
     plt.figure(figsize=(14,8))
     a = plt.subplot2grid((14,8), (0,0), rowspan=12, colspan=8)
     a2 = plt.subplot2grid((14,8), (12,0), rowspan=2, colspan=8, sharex=a)
@@ -127,14 +123,16 @@ def plot_OHLC(df, resample_size='10Min', overlays=[buy_sell_overlay,(SMA_overlay
     
     # Plot the overlay functions
     for overlay in overlays:
-        if len(overlay) == 1:
-            overlay[0](a, df, resample_size)
-        elif len(overlay) == 2:
-            overlay[0](a, df, resample_size, overlay[1])
-        elif len(overlay) == 3:
-            overlay[0](a, df, resample_size, overlay[1], overlay[2])
-        # TODO: this tripple 'if' statement is nasty, need to create a cleaner method
-    
+        try:
+            if len(overlay) == 1:
+                overlay[0](a, df, resample_size)
+            elif len(overlay) == 2:
+                overlay[0](a, df, resample_size, overlay[1])
+            elif len(overlay) == 3:
+                overlay[0](a, df, resample_size, overlay[1], overlay[2])
+            # TODO: this if statement is nasty, need to create a cleaner method
+        except:
+            overlay(a, df, resample_size)
     a.set_ylabel('price')
     a.xaxis.set_major_locator(mticker.MaxNLocator(3))
     a.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d %H:%M'))
@@ -149,3 +147,6 @@ def plot_OHLC(df, resample_size='10Min', overlays=[buy_sell_overlay,(SMA_overlay
     a2.fill_between(OHLC.index, 0, volume_data['volume'], facecolor='blue')
     a2.set_ylabel('volume(BTC)')
         
+
+#%%
+#plot_OHLC(df, '1Min', overlays=[[buy_sell_overlay],[SMA_overlay,14]])
